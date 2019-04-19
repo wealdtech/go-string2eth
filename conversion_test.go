@@ -224,7 +224,7 @@ func TestStringToWei(t *testing.T) {
 	for i, test := range tests {
 		result, err := StringToWei(test.input)
 		if err != nil {
-			assert.Equal(t, test.err, err, fmt.Sprintf("Incorrect error at test %d", i))
+			assert.Equal(t, test.err.Error(), err.Error(), fmt.Sprintf("Incorrect error at test %d", i))
 		} else {
 			require.Nil(t, test.err, fmt.Sprintf("Unexpected error at test %d", i))
 			assert.Equal(t, test.result, result, fmt.Sprintf("Incorrect value at test %d", i))
