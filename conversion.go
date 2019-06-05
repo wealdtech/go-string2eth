@@ -37,7 +37,7 @@ func StringToWei(input string) (*big.Int, error) {
 	// Separate the number from the unit (if any)
 	re := regexp.MustCompile("^(-?[0-9]*(?:\\.[0-9]*)?)([A-Za-z]+)?$")
 	s := re.FindAllStringSubmatch(input, -1)
-	units := "Wei"
+	var units string
 	if len(s) != 1 {
 		return nil, errors.New("invalid format")
 	}

@@ -5,6 +5,7 @@
 [![GoDoc](https://godoc.org/github.com/wealdtech/go-string2eth?status.svg)](https://godoc.org/github.com/wealdtech/go-string2eth)
 [![Travis CI](https://img.shields.io/travis/wealdtech/go-string2eth.svg)](https://travis-ci.org/wealdtech/go-string2eth)
 [![codecov.io](https://img.shields.io/codecov/c/github/wealdtech/go-string2eth.svg)](https://codecov.io/github/wealdtech/go-string2eth)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wealdtech/go-string2eth)](https://goreportcard.com/report/github.com/wealdtech/go-string2eth)
 
 Go utility library to convert strings to Ether values and vice versa.
 
