@@ -63,10 +63,30 @@ func StringToWei(input string) (*big.Int, error) {
 	return &result, nil
 }
 
+// StringToGWei turns a string in to number of GWei.
+// See StringToWei for details.
+// Any part of the value below 1GWei in denomination is lost.
+func StringToGWei(input string) (uint64, error) {
+	wei, err := StringToWei(input)
+	if err != nil {
+		return 0, err
+	}
+	return wei.Div(wei, billion).Uint64(), nil
+}
+
 // Used in WeiToString
 var zero = big.NewInt(0)
 var thousand = big.NewInt(1000)
 var million = big.NewInt(1000000)
+
+// Used in GWeiToString
+var billion = big.NewInt(1000000000)
+
+// GWeiToString turns a number of GWei in to a string.
+// See WeiToString for details.
+func GWeiToString(input uint64, standard bool) string {
+	return WeiToString(new(big.Int).Mul(new(big.Int).SetUint64(input), billion), standard)
+}
 
 // WeiToString turns a number of Wei in to a string.
 // If the 'standard' argument is true then this will display the value

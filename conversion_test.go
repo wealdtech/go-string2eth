@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package string2eth
+package string2eth_test
 
 import (
 	"errors"
@@ -22,37 +22,38 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wealdtech/go-string2eth"
 )
 
 func TestWeiToStringWithSmallEtherDecimalValue(t *testing.T) {
 	expected := "1.000000000000000001 Ether"
 	wei, _ := new(big.Int).SetString("1000000000000000001", 10)
-	result := WeiToString(wei, true)
+	result := string2eth.WeiToString(wei, true)
 	assert.Equal(t, expected, result, "Did not receive expected result")
 }
 
 func TestRoundTripWithSmallValue(t *testing.T) {
 	first := "1 Wei"
-	second, err := StringToWei(first)
+	second, err := string2eth.StringToWei(first)
 	assert.Nil(t, err, "Failed to convert Ether to Wei")
 	assert.Equal(t, second, big.NewInt(1), "Unexpected result converting Ether to Wei")
-	third := WeiToString(second, false)
+	third := string2eth.WeiToString(second, false)
 	assert.Equal(t, first, third, "Did not receive expected result")
-	fourth := WeiToString(second, true)
+	fourth := string2eth.WeiToString(second, true)
 	assert.Equal(t, first, fourth, "Did not receive expected result")
 }
 
 func TestRoundTripWithNormalValue(t *testing.T) {
 	first := "1 Ether"
-	second, err := StringToWei(first)
+	second, err := string2eth.StringToWei(first)
 	assert.Nil(t, err, "Failed to convert Ether to Wei")
 	assert.Equal(t, second, big.NewInt(1000000000000000000), "Unexpected result converting Ether to Wei")
-	third := WeiToString(second, true)
+	third := string2eth.WeiToString(second, true)
 	assert.Equal(t, first, third, "Did not receive expected result")
 }
 
 func ExampleUnitToMultiplier() {
-	multiplier, err := UnitToMultiplier("ether")
+	multiplier, err := string2eth.UnitToMultiplier("ether")
 	if err != nil {
 		return
 	}
@@ -222,7 +223,7 @@ func TestStringToWei(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		result, err := StringToWei(test.input)
+		result, err := string2eth.StringToWei(test.input)
 		if err != nil {
 			assert.Equal(t, test.err.Error(), err.Error(), fmt.Sprintf("Incorrect error at test %d", i))
 		} else {
@@ -562,7 +563,60 @@ func TestWeiToString(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		result := WeiToString(test.input, test.canonical)
+		result := string2eth.WeiToString(test.input, test.canonical)
 		assert.Equal(t, test.result, result, fmt.Sprintf("Incorrect value at test %d", i))
+	}
+}
+
+func TestGWeiToString(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     uint64
+		canonical bool
+		result    string
+	}{
+		{
+			name:      "Zero",
+			input:     0,
+			canonical: true,
+			result:    "0",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := string2eth.GWeiToString(test.input, test.canonical)
+			require.Equal(t, test.result, result)
+		})
+	}
+}
+func TestStringToGWei(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		result uint64
+		err    error
+	}{
+		{
+			name:   "Zero",
+			input:  "0",
+			result: 0,
+		},
+		{
+			name:  "Invalid",
+			input: "@",
+			err:   errors.New("invalid format"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := string2eth.StringToGWei(test.input)
+			if test.err != nil {
+				require.NotNil(t, err)
+				require.Equal(t, test.err.Error(), err.Error())
+			} else {
+				require.Nil(t, err)
+				require.Equal(t, test.result, result)
+			}
+		})
 	}
 }

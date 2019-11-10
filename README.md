@@ -13,6 +13,8 @@ When converting strings to numeric values the process is case-insensitive and do
 
 When converting numeric values to strings the user can select standard mode, in which case all values will be in units of Wei or Ether, or non-standard mode, in which case the full range of values will be used.
 
+This also provides the ability to convert between string and GWei values.
+
 ## Table of Contents
 
 - [Install](#install)
