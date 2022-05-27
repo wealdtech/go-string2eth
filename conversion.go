@@ -1,4 +1,4 @@
-// Copyright 2019 Weald Technology Trading Ltd
+// Copyright 2019, 2022 Weald Technology Trading Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,6 +86,24 @@ var billion = big.NewInt(1000000000)
 // See WeiToString for details.
 func GWeiToString(input uint64, standard bool) string {
 	return WeiToString(new(big.Int).Mul(new(big.Int).SetUint64(input), billion), standard)
+}
+
+// WeiToGWeiSTring turns a number of wei in to a Gwei string.
+func WeiToGWeiString(input *big.Int) string {
+	if input == nil {
+		return "0"
+	}
+
+	intValue := new(big.Int).Div(input, billion)
+	decValue := new(big.Int).Sub(input, new(big.Int).Mul(intValue, billion))
+
+	// Return our value
+	if decValue.Cmp(zero) == 0 {
+		return fmt.Sprintf("%s GWei", intValue)
+	} else {
+		decStr := strings.TrimRight(fmt.Sprintf("%09d", decValue.Int64()), "0")
+		return fmt.Sprintf("%s.%s GWei", intValue, decStr)
+	}
 }
 
 // WeiToString turns a number of Wei in to a string.

@@ -1,4 +1,4 @@
-// Copyright 2019 Weald Technology Trading Ltd
+// Copyright 2019, 2022 Weald Technology Trading Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -589,6 +589,7 @@ func TestGWeiToString(t *testing.T) {
 		})
 	}
 }
+
 func TestStringToGWei(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -617,6 +618,81 @@ func TestStringToGWei(t *testing.T) {
 				require.Nil(t, err)
 				require.Equal(t, test.result, result)
 			}
+		})
+	}
+}
+
+func TestWeiToGWeiString(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  *big.Int
+		result string
+	}{
+		{
+			name:   "Nil",
+			result: "0",
+		},
+		{
+			name:   "1",
+			input:  big.NewInt(1),
+			result: "0.000000001 GWei",
+		},
+		{
+			name:   "999",
+			input:  big.NewInt(999),
+			result: "0.000000999 GWei",
+		},
+		{
+			name:   "1000",
+			input:  big.NewInt(1000),
+			result: "0.000001 GWei",
+		},
+		{
+			name:   "999999",
+			input:  big.NewInt(999999),
+			result: "0.000999999 GWei",
+		},
+		{
+			name:   "1000000",
+			input:  big.NewInt(1000000),
+			result: "0.001 GWei",
+		},
+		{
+			name:   "999999999",
+			input:  big.NewInt(999999999),
+			result: "0.999999999 GWei",
+		},
+		{
+			name:   "100000000",
+			input:  big.NewInt(1000000000),
+			result: "1 GWei",
+		},
+		{
+			name:   "999000000000",
+			input:  big.NewInt(999000000000),
+			result: "999 GWei",
+		},
+		{
+			name:   "999000050000",
+			input:  big.NewInt(999000050000),
+			result: "999.00005 GWei",
+		},
+		{
+			name:   "1000000000000",
+			input:  big.NewInt(10000000000000),
+			result: "10000 GWei",
+		},
+		{
+			name:   "1000010000000",
+			input:  big.NewInt(10000100000000),
+			result: "10000.1 GWei",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := string2eth.WeiToGWeiString(test.input)
+			require.Equal(t, test.result, result)
 		})
 	}
 }
