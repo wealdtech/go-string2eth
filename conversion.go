@@ -32,10 +32,10 @@ func StringToWei(input string) (*big.Int, error) {
 	if input == "" {
 		return nil, errors.New("failed to parse empty value")
 	}
-	input = strings.Replace(input, " ", "", -1)
+	input = strings.ReplaceAll(input, " ", "")
 	var result big.Int
 	// Separate the number from the unit (if any)
-	re := regexp.MustCompile("^(-?[0-9]*(?:\\.[0-9]*)?)([A-Za-z]+)?$")
+	re := regexp.MustCompile(`^(-?[0-9]*(?:\.[0-9]*)?)([A-Za-z]+)?$`)
 	s := re.FindAllStringSubmatch(input, -1)
 	var units string
 	if len(s) != 1 {
@@ -74,14 +74,13 @@ func StringToGWei(input string) (uint64, error) {
 	return wei.Div(wei, billion).Uint64(), nil
 }
 
-// Used in WeiToString
+// Used in WeiToString.
 var (
 	zero     = big.NewInt(0)
 	thousand = big.NewInt(1000)
-	million  = big.NewInt(1000000)
 )
 
-// Used in GWeiToString
+// Used in GWeiToString.
 var billion = big.NewInt(1000000000)
 
 // GWeiToString turns a number of GWei in to a string.
@@ -102,41 +101,40 @@ func WeiToGWeiString(input *big.Int) string {
 	// Return our value
 	if decValue.Cmp(zero) == 0 {
 		return fmt.Sprintf("%s GWei", intValue)
-	} else {
-		decStr := strings.TrimRight(fmt.Sprintf("%09d", decValue.Int64()), "0")
-		return fmt.Sprintf("%s.%s GWei", intValue, decStr)
 	}
+	decStr := strings.TrimRight(fmt.Sprintf("%09d", decValue.Int64()), "0")
+	return fmt.Sprintf("%s.%s GWei", intValue, decStr)
 }
 
 // WeiToString turns a number of Wei in to a string.
 // If the 'standard' argument is true then this will display the value
-// in either (KMG)Wei or Ether only
+// in either (KMG)Wei or Ether only.
 func WeiToString(input *big.Int, standard bool) string {
 	if input == nil {
 		return "0"
 	}
 
-	// Take a copy of the input so that we can mutate it
+	// Take a copy of the input so that we can mutate it.
 	value := new(big.Int).Set(input)
 
-	// Input sanity checks
+	// Input sanity checks.
 	if value.Cmp(zero) == 0 {
 		return "0"
 	}
 
 	postfixPos := 0
 	modInt := new(big.Int).Set(value)
-	// Step 1: step down whole thousands for our first attempt at the unit
+	// Step 1: step down whole thousands for our first attempt at the unit.
 	for value.Cmp(thousand) >= 0 && modInt.Mod(value, thousand).Cmp(zero) == 0 {
 		postfixPos++
 		value = value.Div(value, thousand)
 		modInt = modInt.Set(value)
 	}
 
-	// Step 2: move to a fraction if sensible
+	// Step 2: move to a fraction if sensible.
 
 	// Because of the innacuracy of floating point we use string manipulation
-	// to place the decimal in the correct position
+	// to place the decimal in the correct position.
 	outputValue := value.Text(10)
 
 	desiredPostfixPos := postfixPos
@@ -161,7 +159,7 @@ func WeiToString(input *big.Int, standard bool) string {
 		postfixPos++
 	}
 	for postfixPos > desiredPostfixPos {
-		outputValue = outputValue + strings.Repeat("0", 3)
+		outputValue += strings.Repeat("0", 3)
 		decimalPlace += 3
 		postfixPos--
 	}
@@ -171,7 +169,7 @@ func WeiToString(input *big.Int, standard bool) string {
 		outputValue = outputValue[:decimalPlace] + "." + outputValue[decimalPlace:]
 	}
 
-	// Trim trailing zeros if this is a decimal
+	// Trim trailing zeros if this is a decimal.
 	if strings.Contains(outputValue, ".") {
 		outputValue = strings.TrimRight(outputValue, "0")
 	}
@@ -180,17 +178,17 @@ func WeiToString(input *big.Int, standard bool) string {
 		return "overflow"
 	}
 
-	// Return our value
+	// Return our value.
 	return fmt.Sprintf("%s %s", outputValue, metricUnits[postfixPos])
 }
 
 func decimalStringToWei(amount string, unit string, result *big.Int) error {
 	// Because floating point maths is not accurate we need to break potentially
 	// large decimal fractions in to two separate pieces: the integer part and the
-	// decimal part
+	// decimal part.
 	parts := strings.Split(amount, ".")
 
-	// The value for the integer part of the number is easy
+	// The value for the integer part of the number is easy.
 	if parts[0] != "" {
 		err := integerStringToWei(parts[0], unit, result)
 		if err != nil {
@@ -200,28 +198,28 @@ func decimalStringToWei(amount string, unit string, result *big.Int) error {
 
 	// The value for the decimal part of the number is harder.  We left-shift it
 	// so that we end up multiplying two integers rather than two floats, as the
-	// latter is unreliable
+	// latter is unreliable.
 
-	// Obtain multiplier
-	// This will never fail because it is already called above in integerStringToWei()
+	// Obtain multiplier.
+	// This will never fail because it is already called above in integerStringToWei().
 	multiplier, _ := UnitToMultiplier(unit)
 
 	// Trim trailing 0s
 	trimmedDecimal := strings.TrimRight(parts[1], "0")
 	if len(trimmedDecimal) == 0 {
-		// Nothing more to do
+		// Nothing more to do.
 		return nil
 	}
 	var decVal big.Int
 	decVal.SetString(trimmedDecimal, 10)
 
-	// Divide multiplier by 10^len(trimmed decimal) to obtain sane value
+	// Divide multiplier by 10^len(trimmed decimal) to obtain sane value.
 	div := big.NewInt(10)
 	for i := 0; i < len(trimmedDecimal); i++ {
 		multiplier.Div(multiplier, div)
 	}
 
-	// Ensure we don't have a fractional number of Wei
+	// Ensure we don't have a fractional number of Wei.
 	if multiplier.Sign() == 0 {
 		return errors.New("value resulted in fractional number of Wei")
 	}
@@ -229,21 +227,21 @@ func decimalStringToWei(amount string, unit string, result *big.Int) error {
 	var decResult big.Int
 	decResult.Mul(multiplier, &decVal)
 
-	// Add it to the integer result
+	// Add it to the integer result.
 	result.Add(result, &decResult)
 
 	return nil
 }
 
 func integerStringToWei(amount string, unit string, result *big.Int) error {
-	// Obtain number
+	// Obtain number.
 	number := new(big.Int)
 	_, success := number.SetString(amount, 10)
 	if !success {
 		return fmt.Errorf("failed to parse numeric value of %s %s", amount, unit)
 	}
 
-	// Obtain multiplier
+	// Obtain multiplier.
 	multiplier, err := UnitToMultiplier(unit)
 	if err != nil {
 		return fmt.Errorf("failed to parse unit of %s %s", amount, unit)
@@ -253,16 +251,12 @@ func integerStringToWei(amount string, unit string, result *big.Int) error {
 	return nil
 }
 
-// Metric units
+// Metric units.
 var metricUnits = [...]string{"Wei", "KWei", "MWei", "GWei", "Microether", "Milliether", "Ether", "Kiloether", "Megaether", "Gigaether", "Teraether"}
 
-// Named units
-// var namedUnits = [...]string{"Wei", "Ada", "Babbage", "Shannon", "Szazbo", "Finney", "Ether", "Einstein", "Kilo", "Mega", "Giga", "Tera"}
-
-// UnitToMultiplier takes the name of an Ethereum unit and returns a multiplier
-//  from Wei
-func UnitToMultiplier(unit string) (result *big.Int, err error) {
-	result = big.NewInt(0)
+// UnitToMultiplier takes the name of an Ethereum unit and returns a multiplier.
+func UnitToMultiplier(unit string) (*big.Int, error) {
+	result := big.NewInt(0)
 	switch strings.ToLower(unit) {
 	case "", "wei":
 		result.SetString("1", 10)
@@ -287,7 +281,8 @@ func UnitToMultiplier(unit string) (result *big.Int, err error) {
 	case "tera", "teraether":
 		result.SetString("1000000000000000000000000000000", 10)
 	default:
-		err = fmt.Errorf("Unknown unit %s", unit)
+		return nil, fmt.Errorf("unknown unit %s", unit)
 	}
-	return
+
+	return result, nil
 }
