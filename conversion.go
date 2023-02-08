@@ -1,4 +1,4 @@
-// Copyright 2019, 2022 Weald Technology Trading Ltd
+// Copyright 2019 - 2023 Weald Technology Trading Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -75,9 +75,11 @@ func StringToGWei(input string) (uint64, error) {
 }
 
 // Used in WeiToString
-var zero = big.NewInt(0)
-var thousand = big.NewInt(1000)
-var million = big.NewInt(1000000)
+var (
+	zero     = big.NewInt(0)
+	thousand = big.NewInt(1000)
+	million  = big.NewInt(1000000)
+)
 
 // Used in GWeiToString
 var billion = big.NewInt(1000000000)
@@ -146,9 +148,13 @@ func WeiToString(input *big.Int, standard bool) string {
 	}
 	decimalPlace := len(outputValue)
 	if desiredPostfixPos > 3 && standard {
-		// We want this in a standard unit.  We will show up to
-		// 999999999999 in (KMG)Wei and anything higher in Ether
-		desiredPostfixPos = 6
+		// Because Gwei covers a large range allow anything up to 0.001 ETH
+		// to display as Gwei.
+		if desiredPostfixPos == 4 {
+			desiredPostfixPos = 3
+		} else {
+			desiredPostfixPos = 6
+		}
 	}
 	for postfixPos < desiredPostfixPos {
 		decimalPlace -= 3
@@ -270,7 +276,7 @@ func UnitToMultiplier(unit string) (result *big.Int, err error) {
 		result.SetString("1000000000000", 10)
 	case "finney", "milli", "milliether":
 		result.SetString("1000000000000000", 10)
-	case "ether":
+	case "eth", "ether":
 		result.SetString("1000000000000000000", 10)
 	case "einstein", "kilo", "kiloether":
 		result.SetString("1000000000000000000000", 10)

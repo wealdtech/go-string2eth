@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wealdtech/go-string2eth"
+	string2eth "github.com/wealdtech/go-string2eth"
 )
 
 func TestWeiToStringWithSmallEtherDecimalValue(t *testing.T) {
@@ -333,7 +333,7 @@ func TestWeiToString(t *testing.T) {
 		{ // 18
 			input:     _bigInt("1000000000000"),
 			canonical: true,
-			result:    "0.000001 Ether",
+			result:    "1000 GWei",
 		},
 		{ // 19
 			input:     _bigInt("1000000000000"),
@@ -343,7 +343,7 @@ func TestWeiToString(t *testing.T) {
 		{ // 20
 			input:     _bigInt("1000000000001"),
 			canonical: true,
-			result:    "0.000001000000000001 Ether",
+			result:    "1000.000000001 GWei",
 		},
 		{ // 21
 			input:     _bigInt("1000000000001"),
@@ -353,7 +353,7 @@ func TestWeiToString(t *testing.T) {
 		{ // 22
 			input:     _bigInt("999999999999999"),
 			canonical: true,
-			result:    "0.000999999999999999 Ether",
+			result:    "999999.999999999 GWei",
 		},
 		{ // 23
 			input:     _bigInt("999999999999999"),
@@ -559,6 +559,21 @@ func TestWeiToString(t *testing.T) {
 			input:     _bigInt("0"),
 			canonical: true,
 			result:    "0",
+		},
+		{ // 64
+			input:     _bigInt("999999999999"),
+			canonical: true,
+			result:    "999.999999999 GWei",
+		},
+		{ // 65
+			input:     _bigInt("999999999999999"),
+			canonical: true,
+			result:    "999999.999999999 GWei",
+		},
+		{ // 66
+			input:     _bigInt("1000000000000000"),
+			canonical: true,
+			result:    "0.001 Ether",
 		},
 	}
 
