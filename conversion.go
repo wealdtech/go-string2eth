@@ -1,4 +1,4 @@
-// Copyright 2019 - 2023 Weald Technology Trading Ltd
+// Copyright 2019 - 2023 Weald Technology Trading Limited.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// string2eth provides methods for converting between number of Wei and a string
+// represetation of the same, with the latter allowing all commonly-used
+// representations as inputs.  String outputs are provided in a sensible format
+// given the value.
 package string2eth
 
 import (
@@ -22,6 +26,15 @@ import (
 	"strings"
 )
 
+var (
+	ErrEmptyValue    = errors.New("failed to parse empty value")
+	ErrInvalidFormat = errors.New("invalid format")
+	ErrNegative      = errors.New("value resulted in negative number of Wei")
+	ErrFractional    = errors.New("value resulted in fractional number of Wei")
+	ErrUnknownUnit   = errors.New("unknown unit")
+	ErrParseFailure  = errors.New("failed to parse")
+)
+
 // StringToWei turns a string in to number of Wei.
 // The string can be a simple number of Wei, e.g. "1000000000000000" or it can
 // be a number followed by a unit, e.g. "10 ether".  Unit names are
@@ -30,36 +43,39 @@ import (
 // Note that this function expects use of the period as the decimal separator.
 func StringToWei(input string) (*big.Int, error) {
 	if input == "" {
-		return nil, errors.New("failed to parse empty value")
+		return nil, ErrEmptyValue
 	}
+
+	// Remove unused runes that may be in an input string.
 	input = strings.ReplaceAll(input, " ", "")
+	input = strings.ReplaceAll(input, "_", "")
+
 	var result big.Int
 	// Separate the number from the unit (if any)
 	re := regexp.MustCompile(`^(-?[0-9]*(?:\.[0-9]*)?)([A-Za-z]+)?$`)
-	s := re.FindAllStringSubmatch(input, -1)
+	subMatches := re.FindAllStringSubmatch(input, -1)
 	var units string
-	if len(s) != 1 {
-		return nil, errors.New("invalid format")
+	if len(subMatches) != 1 {
+		return nil, ErrInvalidFormat
 	}
-	units = s[0][2]
-	if strings.Contains(s[0][1], ".") {
-		err := decimalStringToWei(s[0][1], units, &result)
+	units = subMatches[0][2]
+	if strings.Contains(subMatches[0][1], ".") {
+		err := decimalStringToWei(subMatches[0][1], units, &result)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		err := integerStringToWei(s[0][1], units, &result)
+		err := integerStringToWei(subMatches[0][1], units, &result)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Ensure we don't have a negative number
+	// Ensure we don't have a negative number.
 	if result.Cmp(new(big.Int)) < 0 {
-		return nil, errors.New("value resulted in negative number of Wei")
+		return nil, ErrNegative
 	}
 
-	// return nil, errors.New("failed to parse value")
 	return &result, nil
 }
 
@@ -71,6 +87,7 @@ func StringToGWei(input string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return wei.Div(wei, billion).Uint64(), nil
 }
 
@@ -89,7 +106,7 @@ func GWeiToString(input uint64, standard bool) string {
 	return WeiToString(new(big.Int).Mul(new(big.Int).SetUint64(input), billion), standard)
 }
 
-// WeiToGWeiSTring turns a number of wei in to a Gwei string.
+// WeiToGWeiString turns a number of wei in to a Gwei string.
 func WeiToGWeiString(input *big.Int) string {
 	if input == nil {
 		return "0"
@@ -98,11 +115,12 @@ func WeiToGWeiString(input *big.Int) string {
 	intValue := new(big.Int).Div(input, billion)
 	decValue := new(big.Int).Sub(input, new(big.Int).Mul(intValue, billion))
 
-	// Return our value
+	// Return our value.
 	if decValue.Cmp(zero) == 0 {
 		return fmt.Sprintf("%s GWei", intValue)
 	}
 	decStr := strings.TrimRight(fmt.Sprintf("%09d", decValue.Int64()), "0")
+
 	return fmt.Sprintf("%s.%s GWei", intValue, decStr)
 }
 
@@ -117,51 +135,81 @@ func WeiToString(input *big.Int, standard bool) string {
 	// Take a copy of the input so that we can mutate it.
 	value := new(big.Int).Set(input)
 
-	// Input sanity checks.
+	// Short circuit on 0.
 	if value.Cmp(zero) == 0 {
 		return "0"
 	}
 
-	postfixPos := 0
+	// Step 1: work out simple units, keeping value as a whole number.
+	value, unitPos := weiToStringStep1(value)
+
+	// Step 2: move value to a fraction if sensible.
+	outputValue, unitPos, desiredUnitPos, decimalPlace := weiToStringStep2(value, unitPos, standard)
+
+	// Step 3: generate output.
+	outputValue, unitPos = weiToStringStep3(outputValue, unitPos, desiredUnitPos, decimalPlace)
+
+	if unitPos >= len(metricUnits) {
+		return "overflow"
+	}
+
+	// Return our value.
+	return fmt.Sprintf("%s %s", outputValue, metricUnits[unitPos])
+}
+
+// weiToStringStep1 steps the value down by thousands to obtain a smaller value
+// with unit reference.
+func weiToStringStep1(value *big.Int) (*big.Int, int) {
+	unitPos := 0
 	modInt := new(big.Int).Set(value)
-	// Step 1: step down whole thousands for our first attempt at the unit.
 	for value.Cmp(thousand) >= 0 && modInt.Mod(value, thousand).Cmp(zero) == 0 {
-		postfixPos++
+		unitPos++
 		value = value.Div(value, thousand)
 		modInt = modInt.Set(value)
 	}
 
-	// Step 2: move to a fraction if sensible.
+	return value, unitPos
+}
 
-	// Because of the innacuracy of floating point we use string manipulation
+// weiToStringStep2 starts to turn a value into a string, handling the case where
+// the resultant output may be a decial.
+func weiToStringStep2(value *big.Int, unitPos int, standard bool) (string, int, int, int) {
+	// Because of the inaccuracy of floating point we use string manipulation
 	// to place the decimal in the correct position.
 	outputValue := value.Text(10)
 
-	desiredPostfixPos := postfixPos
+	desiredUnitPos := unitPos
 	if len(outputValue) > 3 {
-		desiredPostfixPos += len(outputValue) / 3
+		desiredUnitPos += len(outputValue) / 3
 		if len(outputValue)%3 == 0 {
-			desiredPostfixPos--
+			desiredUnitPos--
 		}
 	}
 	decimalPlace := len(outputValue)
-	if desiredPostfixPos > 3 && standard {
+	if desiredUnitPos > 3 && standard {
 		// Because Gwei covers a large range allow anything up to 0.001 ETH
 		// to display as Gwei.
-		if desiredPostfixPos == 4 {
-			desiredPostfixPos = 3
+		if desiredUnitPos == 4 {
+			desiredUnitPos = 3
 		} else {
-			desiredPostfixPos = 6
+			desiredUnitPos = 6
 		}
 	}
-	for postfixPos < desiredPostfixPos {
+	for unitPos < desiredUnitPos {
 		decimalPlace -= 3
-		postfixPos++
+		unitPos++
 	}
-	for postfixPos > desiredPostfixPos {
+
+	return outputValue, unitPos, desiredUnitPos, decimalPlace
+}
+
+// weiToStringStep3 finishes generation of the output value, ensuring the appropriate
+// number of 0s and tidying up to provide a presentable result.
+func weiToStringStep3(outputValue string, unitPos int, desiredUnitPos int, decimalPlace int) (string, int) {
+	for unitPos > desiredUnitPos {
 		outputValue += strings.Repeat("0", 3)
 		decimalPlace += 3
-		postfixPos--
+		unitPos--
 	}
 	if decimalPlace <= 0 {
 		outputValue = "0." + strings.Repeat("0", 0-decimalPlace) + outputValue
@@ -174,12 +222,7 @@ func WeiToString(input *big.Int, standard bool) string {
 		outputValue = strings.TrimRight(outputValue, "0")
 	}
 
-	if postfixPos >= len(metricUnits) {
-		return "overflow"
-	}
-
-	// Return our value.
-	return fmt.Sprintf("%s %s", outputValue, metricUnits[postfixPos])
+	return outputValue, unitPos
 }
 
 func decimalStringToWei(amount string, unit string, result *big.Int) error {
@@ -192,7 +235,7 @@ func decimalStringToWei(amount string, unit string, result *big.Int) error {
 	if parts[0] != "" {
 		err := integerStringToWei(parts[0], unit, result)
 		if err != nil {
-			return fmt.Errorf("failed to parse %s %s", amount, unit)
+			return fmt.Errorf("%w %s %s", ErrParseFailure, amount, unit)
 		}
 	}
 
@@ -204,7 +247,7 @@ func decimalStringToWei(amount string, unit string, result *big.Int) error {
 	// This will never fail because it is already called above in integerStringToWei().
 	multiplier, _ := UnitToMultiplier(unit)
 
-	// Trim trailing 0s
+	// Trim trailing 0s.
 	trimmedDecimal := strings.TrimRight(parts[1], "0")
 	if len(trimmedDecimal) == 0 {
 		// Nothing more to do.
@@ -221,7 +264,7 @@ func decimalStringToWei(amount string, unit string, result *big.Int) error {
 
 	// Ensure we don't have a fractional number of Wei.
 	if multiplier.Sign() == 0 {
-		return errors.New("value resulted in fractional number of Wei")
+		return ErrFractional
 	}
 
 	var decResult big.Int
@@ -238,23 +281,38 @@ func integerStringToWei(amount string, unit string, result *big.Int) error {
 	number := new(big.Int)
 	_, success := number.SetString(amount, 10)
 	if !success {
-		return fmt.Errorf("failed to parse numeric value of %s %s", amount, unit)
+		return fmt.Errorf("%w %s %s", ErrParseFailure, amount, unit)
 	}
 
 	// Obtain multiplier.
 	multiplier, err := UnitToMultiplier(unit)
 	if err != nil {
-		return fmt.Errorf("failed to parse unit of %s %s", amount, unit)
+		return fmt.Errorf("%w %s %s", ErrParseFailure, amount, unit)
 	}
 
 	result.Mul(number, multiplier)
+
 	return nil
 }
 
 // Metric units.
-var metricUnits = [...]string{"Wei", "KWei", "MWei", "GWei", "Microether", "Milliether", "Ether", "Kiloether", "Megaether", "Gigaether", "Teraether"}
+var metricUnits = [...]string{
+	"Wei",
+	"KWei",
+	"MWei",
+	"GWei",
+	"Microether",
+	"Milliether",
+	"Ether",
+	"Kiloether",
+	"Megaether",
+	"Gigaether",
+	"Teraether",
+}
 
 // UnitToMultiplier takes the name of an Ethereum unit and returns a multiplier.
+//
+//nolint:cyclop
 func UnitToMultiplier(unit string) (*big.Int, error) {
 	result := big.NewInt(0)
 	switch strings.ToLower(unit) {
@@ -281,7 +339,7 @@ func UnitToMultiplier(unit string) (*big.Int, error) {
 	case "tera", "teraether":
 		result.SetString("1000000000000000000000000000000", 10)
 	default:
-		return nil, fmt.Errorf("unknown unit %s", unit)
+		return nil, fmt.Errorf("%w %s", ErrUnknownUnit, unit)
 	}
 
 	return result, nil

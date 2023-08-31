@@ -174,7 +174,7 @@ func TestStringToWei(t *testing.T) {
 		},
 		{ // 25
 			input: "1000 foo",
-			err:   errors.New("failed to parse unit of 1000 foo"),
+			err:   errors.New("failed to parse 1000 foo"),
 		},
 		{ // 26
 			input:  "2megawei",
@@ -186,7 +186,7 @@ func TestStringToWei(t *testing.T) {
 		},
 		{ // 28
 			input: "onehundred ether",
-			err:   errors.New("failed to parse numeric value of  onehundredether"),
+			err:   errors.New("failed to parse  onehundredether"),
 		},
 		{ // 29
 			input: "onehundred.5 ether",
@@ -202,7 +202,7 @@ func TestStringToWei(t *testing.T) {
 		},
 		{ // 32
 			input: "10 wei wei wei",
-			err:   errors.New("failed to parse unit of 10 weiweiwei"),
+			err:   errors.New("failed to parse 10 weiweiwei"),
 		},
 		{ // 33
 			input: "0.1wei",
@@ -220,16 +220,22 @@ func TestStringToWei(t *testing.T) {
 			input:  "5 Shannon",
 			result: _bigInt("5000000000"),
 		},
+		{ // 37
+			input:  "1_000_000 Ether",
+			result: _bigInt("1000000000000000000000000"),
+		},
 	}
 
 	for i, test := range tests {
-		result, err := string2eth.StringToWei(test.input)
-		if err != nil {
-			assert.Equal(t, test.err.Error(), err.Error(), fmt.Sprintf("Incorrect error at test %d", i))
-		} else {
-			require.Nil(t, test.err, fmt.Sprintf("Unexpected error at test %d", i))
-			assert.Equal(t, test.result, result, fmt.Sprintf("Incorrect value at test %d", i))
-		}
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			result, err := string2eth.StringToWei(test.input)
+			if err != nil {
+				assert.Equal(t, test.err.Error(), err.Error(), fmt.Sprintf("Incorrect error at test %d", i))
+			} else {
+				require.Nil(t, test.err, fmt.Sprintf("Unexpected error at test %d", i))
+				assert.Equal(t, test.result, result, fmt.Sprintf("Incorrect value at test %d", i))
+			}
+		})
 	}
 }
 
